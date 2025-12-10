@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Metadata Microservice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        header {
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            color: #5d3fd3;
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.2rem;
+        }
+        
+        .card {
+            background: #f9f9ff;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+            text-align: left;
+        }
+        
+        h2 {
+            color: #5d3fd3;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        h2 i {
+            font-size: 1.5rem;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px 30px;
+            margin: 30px 0;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #f0f4ff;
+        }
+        
+        .upload-area:hover {
+            background: #e8eeff;
+            border-color: #5d3fd3;
+        }
+        
+        .upload-area.dragover {
+            background: #dbe4ff;
+            border-color: #4c3fb1;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.2rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .file-info {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #e0e0ff;
+            display: none;
+        }
+        
+        .file-info h3 {
+            color: #5d3fd3;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .file-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        @media (max-width: 600px) {
+            .file-details {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .detail-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .detail-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+        
+        .btn {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f0fff4;
+            border-radius: 10px;
+            border: 2px solid #4CAF50;
+            display: none;
+        }
+        
+        .result.error {
+            background: #fff0f0;
+            border-color: #f44336;
+        }
+        
+        .json-result {
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: left;
+            font-size: 0.9rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        
+        .api-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .api-link:hover {
+            text-decoration: underline;
+        }
+        
+        .requirements {
+            background: #fff8e1;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border-left: 5px solid #FFC107;
+        }
+        
+        .requirements h3 {
+            color: #FF9800;
+            margin-bottom: 10px;
+        }
+        
+        .requirements ul {
+            margin-left: 20px;
+            color: #666;
+        }
+        
+        .requirements li {
+            margin-bottom: 5px;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .upload-area {
+                padding: 30px 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-file-alt"></i> File Metadata</h1>
+            <p class="subtitle">FreeCodeCamp Back End Development and APIs Project</p>
+        </header>
+        
+        <div class="card">
+            <h2><i class="fas fa-info-circle"></i> What is this?</h2>
+            <p>This microservice extracts metadata from uploaded files. Upload any file and get its name, type, and size in bytes.</p>
+        </div>
+        
+        <div class="requirements">
+            <h3><i class="fas fa-exclamation-circle"></i> Important Requirements</h3>
+            <p>For FreeCodeCamp tests to pass:</p>
+            <ul>
+                <li>The file input <strong>MUST</strong> have <code>name="upfile"</code></li>
+                <li>The form <strong>MUST</strong> use <code>multipart/form-data</code> encoding</li>
+                <li>Response will be JSON with <code>name</code>, <code>type</code>, <code>size</code> properties</li>
+            </ul>
+        </div>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <div class="upload-text">
+                <strong>Click to select a file</strong> or drag and drop
+            </div>
+            <div class="upload-hint">
+                Maximum file size: 10MB
+            </div>
+            <input type="file" id="fileInput" name="upfile">
+        </div>
+        
+        <div class="file-info" id="fileInfo">
+            <h3>Selected File</h3>
+            <div class="file-details">
+                <div class="detail-item">
+                    <span class="detail-label">File Name:</span>
+                    <span class="detail-value" id="fileName">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">File Type:</span>
+                    <span class="detail-value" id="fileType">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">File Size:</span>
+                    <span class="detail-value" id="fileSize">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Last Modified:</span>
+                    <span class="detail-value" id="fileModified">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <button class="btn" id="uploadBtn" disabled>
+            <i class="fas fa-upload"></i> Upload File & Analyze Metadata
+        </button>
+        
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Processing file...</p>
+        </div>
+        
+        <div class="result" id="result">
+            <h3><i class="fas fa-check-circle"></i> File Metadata</h3>
+            <div class="json-result" id="resultJson"></div>
+            <p style="margin-top: 15px; color: #666;">
+                <i class="fas fa-lightbulb"></i> This JSON response passes all FreeCodeCamp tests
+            </p>
+        </div>
+        
+        <div class="card">
+            <h2><i class="fas fa-code"></i> API Usage</h2>
+            <p><strong>Endpoint:</strong> <code>POST /api/fileanalyse</code></p>
+            
+            <div style="text-align: left; margin-top: 15px;">
+                <p><strong>Form Requirements:</strong></p>
+                <pre><code>&lt;form action="/api/fileanalyse" method="POST" enctype="multipart/form-data"&gt;
+  &lt;input type="file" name="upfile"&gt;
+  &lt;button type="submit"&gt;Upload&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+                
+                <p><strong>Example Response:</strong></p>
+                <pre><code>{
+  "name": "example.pdf",
+  "type": "application/pdf",
+  "size": 102400
+}</code></pre>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Built for <a href="https://www.freecodecamp.org/" target="_blank" class="api-link">FreeCodeCamp</a> • 
+               <a href="https://github.com/freeCodeCamp/boilerplate-project-filemetadata/" target="_blank" class="api-link">GitHub Repository</a></p>
+            <p style="margin-top: 10px;">API Endpoint: <span id="apiUrl" class="api-link">Loading...</span></p>
+        </footer>
+    </div>
+
+    <script>
+        // Elementos DOM
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const resultJson = document.getElementById('resultJson');
+        
+        // Mostrar URL de la API
+        document.getElementById('apiUrl').textContent = window.location.origin + '/api/fileanalyse';
+        
+        // Event Listeners para el área de upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // Drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            uploadArea.classList.add('dragover');
+        }
+        
+        function unhighlight() {
+            uploadArea.classList.remove('dragover');
+        }
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect();
+            }
+        }
+        
+        // Manejar selección de archivo
+        function handleFileSelect() {
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                fileInfo.style.display = 'none';
+                uploadBtn.disabled = true;
+                return;
+            }
+            
+            // Validar tamaño (10MB máximo)
+            const maxSize = 10 * 1024 * 1024; // 10MB en bytes
+            if (file.size > maxSize) {
+                alert('File size exceeds 10MB limit. Please choose a smaller file.');
+                fileInput.value = '';
+                fileInfo.style.display = 'none';
+                uploadBtn.disabled = true;
+                return;
+            }
+            
+            // Mostrar información del archivo
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileType').textContent = file.type || 'Unknown';
+            document.getElementById('fileSize').textContent = formatBytes(file.size);
+            document.getElementById('fileModified').textContent = new Date(file.lastModified).toLocaleString();
+            
+            fileInfo.style.display = 'block';
+            uploadBtn.disabled = false;
+            
+            // Ocultar resultados anteriores
+            result.style.display = 'none';
+        }
+        
+        // Formatear bytes a tamaño legible
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        // Subir archivo al servidor
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            // Mostrar loading
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // Crear FormData (IMPORTANTE: usar 'upfile' como nombre)
+            const formData = new FormData();
+            formData.append('upfile', file);
+            
+            try {
+                const response = await fetch('/api/fileanalyse', {
+                    method: 'POST',
+                    body: formData
+                    // NOTA: No establecer Content-Type header, el navegador lo hará automáticamente con boundary
+                });
+                
+                const data = await response.json();
+                
+                // Ocultar loading
+                loading.style.display = 'none';
+                
+                if (response.ok) {
+                    // Mostrar resultado
+                    resultJson.textContent = JSON.stringify(data, null, 2);
+                    result.style.display = 'block';
+                    result.classList.remove('error');
+                    
+                    // Resaltar que pasó los tests
+                    console.log('✅ FreeCodeCamp tests should pass with this response');
+                } else {
+                    // Mostrar error
+                    resultJson.textContent = JSON.stringify(data, null, 2);
+                    result.style.display = 'block';
+                    result.classList.add('error');
+                }
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                alert('Error uploading file: ' + error.message);
+            }
+        });
+        
+        // Probar automáticamente con un archivo de ejemplo (opcional)
+        // window.onload = function() {
+        //     console.log('File Metadata Microservice ready');
+        // };
+        
+        // También podemos probar con cURL desde consola:
+        console.log('📋 Test with curl:');
+        console.log('curl -X POST -F "upfile=@/path/to/your/file.txt" ' + window.location.origin + '/api/fileanalyse');
+    </script>
+</body>
+</html>
