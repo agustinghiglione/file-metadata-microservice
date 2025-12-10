@@ -1,115 +1,120 @@
-// server.js - File Metadata Microservice for FreeCodeCamp
+// server.js - OPTIMIZADO para Render y FreeCodeCamp
 const express = require('express');
-const cors = require('cors');
 const multer = require('multer');
+const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Crear carpeta 'uploads' si no existe
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
+// Configuración CORS más permisiva para FreeCodeCamp
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+  optionsSuccessStatus: 200
+}));
 
-// Configuración de Multer para manejo de archivos
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir); // Guardar en carpeta 'uploads'
-  },
-  filename: function (req, file, cb) {
-    // Mantener el nombre original con timestamp para evitar duplicados
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
+// Middleware para logging (útil para debug)
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
 
-// Filtrar tipos de archivo (opcional, pero buena práctica)
-const fileFilter = (req, file, cb) => {
-  // Aceptar todos los tipos de archivo para este proyecto
-  cb(null, true);
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Configurar Multer - SIMPLE y en memoria
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+}).single('upfile'); // ¡IMPORTANTE: 'upfile' exactamente como FreeCodeCamp pide!
+
+// Middleware personalizado para manejar Multer errors
+const handleFileUpload = (req, res, next) => {
+  upload(req, res, function(err) {
+    if (err instanceof multer.MulterError) {
+      // Error de Multer (tamaño, etc.)
+      return res.status(400).json({ error: `File upload error: ${err.message}` });
+    } else if (err) {
+      // Error desconocido
+      return res.status(500).json({ error: 'Unknown upload error' });
+    }
+    next();
+  });
 };
 
-// Configurar multer con límites
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // Límite de 10MB
-    files: 1 // Solo un archivo por request
-  }
-});
-
-// Middleware
-app.use(cors({ optionsSuccessStatus: 200 }));
-app.use(express.static('public'));
-
-// Ruta principal - Página de inicio con formulario
+// Ruta principal
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API endpoint para subir archivos - ¡IMPORTANTE: 'upfile' es el nombre requerido!
-app.post('/api/fileanalyse', upload.single('upfile'), (req, res) => {
-  try {
-    // Verificar si se subió un archivo
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    
-    // Obtener metadata del archivo
-    const fileMetadata = {
-      name: req.file.originalname,     // Nombre original del archivo
-      type: req.file.mimetype,         // Tipo MIME (ej: image/jpeg, application/pdf)
-      size: req.file.size              // Tamaño en bytes
-    };
-    
-    // Eliminar el archivo después de procesar (opcional, para ahorrar espacio)
-    fs.unlink(req.file.path, (err) => {
-      if (err) console.error('Error deleting temp file:', err);
-    });
-    
-    // Responder con el formato EXACTO requerido por FreeCodeCamp
-    res.json(fileMetadata);
-    
-  } catch (error) {
-    console.error('Error processing file:', error);
-    res.status(500).json({ error: 'Server error processing file' });
-  }
-});
-
-// Ruta para pruebas
-app.get('/api/info', (req, res) => {
+// Endpoint de salud
+app.get('/api/health', (req, res) => {
   res.json({
+    status: 'OK',
     service: 'File Metadata Microservice',
-    version: '1.0.0',
-    endpoints: {
-      upload: 'POST /api/fileanalyse',
-      info: 'GET /api/info'
-    },
-    note: 'Upload a file using form with input field name="upfile"'
+    timestamp: new Date().toISOString()
   });
 });
 
-// Manejar errores de Multer (archivo muy grande, etc.)
-app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File size too large. Maximum size is 10MB' });
+// Endpoint PRINCIPAL - Versión optimizada
+app.post('/api/fileanalyse', handleFileUpload, (req, res) => {
+  try {
+    console.log('File upload request received');
+    
+    // Verificar si hay archivo
+    if (!req.file) {
+      console.log('No file in request');
+      return res.status(400).json({ error: 'No file uploaded. Field must be named "upfile".' });
     }
-    return res.status(400).json({ error: error.message });
+    
+    console.log('File details:', {
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      size: req.file.size
+    });
+    
+    // Respuesta EXACTA como FreeCodeCamp requiere
+    const response = {
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      size: req.file.size
+    };
+    
+    console.log('Sending response:', response);
+    res.json(response);
+    
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-  next(error);
 });
 
-// Iniciar servidor
-const listener = app.listen(PORT, () => {
-  console.log(`📁 File Metadata Microservice running on port ${listener.address().port}`);
-  console.log(`🏠 Homepage: http://localhost:${PORT}/`);
-  console.log(`📤 Upload endpoint: http://localhost:${PORT}/api/fileanalyse`);
-  console.log('\n⚠️  IMPORTANTE: El formulario debe tener un input con name="upfile"');
+// Endpoint de prueba simple (sin file upload)
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working',
+    upload_endpoint: 'POST /api/fileanalyse',
+    required_field: 'upfile',
+    example_response: {
+      name: "example.txt",
+      type: "text/plain", 
+      size: 1234
+    }
+  });
 });
 
-module.exports = app;
+// Manejo de errores 404
+app.use((req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// Iniciar servidor en el puerto que Render asigna
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Health check: GET /api/health`);
+  console.log(`✅ File upload: POST /api/fileanalyse`);
+  console.log(`✅ Field name must be: upfile`);
+});
